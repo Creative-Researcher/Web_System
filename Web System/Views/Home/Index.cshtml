@@ -1,0 +1,25 @@
+﻿@{
+    ViewData["Title"] = "Home Page";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Inventory System</h1>
+    <hr />
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-4">
+        <h3>Add New Item</h3>
+        <form>
+            <div class="form-group mb-3">
+                <label>Item Name</label>
+                <input type="text" class="form-control" id="itemName" placeholder="e.g. System Unit">
+            </div>
+            <div class="form-group mb-3">
+                <label>Quantity</label>
+                <input type="number" class="form-control" id="itemQty">
+            </div>
+            <button type="button" class="btn btn-primary w-100">Save to Database</button>
+        </form>
+    </div>
+</div>

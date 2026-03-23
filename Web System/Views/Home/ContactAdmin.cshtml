@@ -1,0 +1,76 @@
+﻿@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Contact Admin | PIRDS</title>
+    <style>
+        body {
+            /* Using your specific background file */
+            background: url('/images/Modern-art-Purple-lights-background-Graphics-103278562-1.jpg') no-repeat center center fixed;
+            background-size: cover;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        .support-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            padding: 40px;
+            border-radius: 25px;
+            text-align: center;
+            color: white;
+            width: 400px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .btn-action {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            color: white;
+            text-decoration: none;
+            transition: 0.3s;
+        }
+        .btn-action:hover { background: rgba(255, 255, 255, 0.2); }
+        .btn-back {
+            background: #a855f7;
+            padding: 10px 25px;
+            border-radius: 10px;
+            color: white;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    @{
+    ViewData["Title"] = "Contact Admin";
+}
+
+<div class="container mt-5">
+    <div class="glass-card p-5 text-white" style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.2);">
+        <h2 class="mb-4">📧 Contact System Administrator</h2>
+        <hr style="border-color: rgba(255,255,255,0.3)">
+        
+        <div class="mt-4">
+            <p><strong>Email:</strong> @ViewBag.AdminEmail</p>
+            <p><strong>Phone:</strong> @ViewBag.AdminPhone</p>
+            <p><strong>Office Hours:</strong> @ViewBag.OfficeHours</p>
+        </div>
+
+        <div class="mt-5">
+            <a asp-action="UserDashboard" class="btn btn-outline-light">Back to Dashboard</a>
+        </div>
+    </div>
+</div>
+</body>
+</html>

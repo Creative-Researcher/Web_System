@@ -1,0 +1,234 @@
+﻿@model Web_System.Models.User
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>User Dashboard | PIRDS</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+       body {
+    /* The '/' starts at the wwwroot folder */
+    background-image: url('/images/Modern-art-Purple-lights-background-Graphics-103278562-1.jpg');
+    background-size: cover;
+    background-attachment: fixed;
+}
+
+/* Enhancing the glassmorphism to stand out against the new busy background */
+.glass-card {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(15px); /* Increased blur for readability */
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+        body {
+            background: radial-gradient(circle at bottom left, #2e0249, #4b0082, #1c0029);
+            background-attachment: fixed;
+            min-height: 100vh;
+            color: white;
+            font-family: 'Segoe UI', sans-serif;
+            padding: 40px 0;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            padding: 25px;
+            height: 100%;
+            transition: 0.3s;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(169, 7, 250, 0.5);
+        }
+
+        .profile-img {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: 3px solid #A907FA;
+            margin-bottom: 15px;
+            box-shadow: 0 0 15px rgba(169, 7, 250, 0.6);
+        }
+
+        .btn-user-action {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            transition: 0.3s;
+            width: 100%;
+            text-align: left;
+            padding: 12px;
+            text-decoration: none;
+            display: block;
+        }
+
+        .btn-user-action:hover {
+            background: #A907FA;
+            color: white;
+            box-shadow: 0 5px 15px rgba(169, 7, 250, 0.4);
+        }
+
+        .form-control-glass {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            border-radius: 10px;
+        }
+
+        .form-control-glass:focus {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border-color: #A907FA;
+            box-shadow: none;
+        }
+
+        .welcome-text { font-weight: 700; text-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .status-badge { background: rgba(0, 255, 127, 0.2); color: #00ff7f; border: 1px solid #00ff7f; padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; }
+        
+        .prediction-table thead { background: rgba(255, 255, 255, 0.05); }
+        .prediction-table tr { border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    @if (TempData["Message"] != null)
+    {
+        <div class="alert alert-info bg-info text-white border-0 shadow-sm mb-4" style="border-radius: 12px;">
+            ✨ @TempData["Message"]
+        </div>
+    }
+
+    @* CRITICAL NULL CHECK: Prevents the crash shown in your debugger *@
+    @if (Model != null)
+    {
+        <div class="row mb-4">
+            <div class="col-12 d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="welcome-text">WELCOME BACK!</h1>
+                    <p class="text-light opacity-75">Authenticated User: <strong>@Model.FullName</strong></p>
+                </div>
+                <a asp-action="Logout" class="btn btn-outline-danger px-4" style="border-radius: 12px;">Logout</a>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="glass-card text-center">
+                    <img src="https://ui-avatars.com/api/?name=@Model.FullName&background=E384FF&color=fff" class="profile-img" alt="User">
+                    <h3 class="mb-1">@Model.Position</h3>
+                    <span class="status-badge mb-3 d-inline-block">System Active</span>
+                    <hr class="opacity-25">
+                    <div class="text-start mt-3">
+                        <p class="small mb-1 opacity-50">Role</p>
+                        <p>@Model.Role</p>
+                        <p class="small mb-1 opacity-50">Department</p>
+                        <p>Institutional Planning</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <div class="row g-4">
+                    <div class="col-md-7">
+                        <div class="glass-card">
+                            <h5 class="mb-3">🛠️ Resource Planning Input</h5>
+                            <form asp-action="SubmitPlanningData" method="post">
+                                <input type="hidden" name="facultyId" value="@Model.Id" />
+                                <div class="mb-3">
+                                    <label class="small opacity-75">Describe the current lack or institutional problem:</label>
+                                    <textarea name="resourceRequest" 
+                                              class="form-control form-control-glass" 
+                                              placeholder="e.g., Computer Lab 3 has frequent overheating issues..." 
+                                              rows="4" required></textarea>
+                                </div>
+                                <button type="submit" class="btn-user-action text-center">🚀 Submit for System Analysis</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="col-md-5">
+                        <div class="glass-card">
+                            <h5 class="mb-3">📂 Quick Actions</h5>
+                            
+                            @* Updated Action name to match your Controller *@
+                            <a asp-action="ViewRecords" asp-route-id="@Model.Id" class="btn-user-action">
+                                📊 View My Records
+                            </a>
+                            
+                            <a asp-action="ContactAdmin" class="btn-user-action mt-2">
+                                💬 Contact Admin Support
+                            </a>
+
+                            <div class="mt-4 p-3" style="background: rgba(0, 255, 255, 0.05); border-radius: 12px; border: 1px solid rgba(0, 255, 255, 0.1);">
+                                <p class="small mb-1 opacity-50">Predictive Tip:</p>
+                                <p class="small mb-0 text-info">Predictive accuracy increases with detailed problem descriptions.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 mt-4" id="statusTable">
+                <div class="glass-card">
+                    <h4 class="mb-3">✨ System Forecasts & Predictions</h4>
+                    <p class="small opacity-75">Automated solutions based on reported institutional needs.</p>
+                    
+                    <table class="table prediction-table text-white mt-3">
+                        <thead>
+                            <tr class="opacity-75">
+                                <th>Reported Problem</th>
+                                <th>Predicted Solution (System Output)</th>
+                                <th>Forecast Period</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (ViewBag.MyRequests != null)
+                            {
+                                foreach (var req in ViewBag.MyRequests)
+                                {
+                                    <tr>
+                                        <td class="small py-3">@req.Details</td>
+                                        <td class="text-info fw-bold py-3">
+                                            <span style="color: #00d2ff;">🔮 @req.Status</span>
+                                        </td>
+                                        <td class="py-3">@req.Period</td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr><td colspan="3" class="text-center py-5 opacity-50">No reports processed yet.</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        @* Fallback if the Model is still null after controller fix *@
+        <div class="glass-card text-center py-5">
+            <h2 class="text-danger">⚠️ Session Error</h2>
+            <p>Could not load user profile. Please try logging in again.</p>
+            <a asp-action="Login" class="btn btn-primary">Back to Login</a>
+        </div>
+    }
+</body>
+</html>
