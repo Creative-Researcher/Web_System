@@ -1,4 +1,4 @@
-﻿@model List<Web_System.Models.User>
+﻿@model IEnumerable<Web_System.Models.User>
 @{
     Layout = null;
 }
@@ -8,8 +8,9 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Admin Strategic Panel | PIRDS</title>
+    <title>Strategic Resource Panel</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { 
@@ -29,7 +30,7 @@
             border-radius: 20px; 
             padding: 25px; 
             box-shadow: 0 8px 32px rgba(0,0,0,0.5); 
-            margin-bottom: 20px;
+            height: 100%;
         }
 
         .btn-predict { 
@@ -40,13 +41,19 @@
         .btn-predict:hover { transform: scale(1.02); box-shadow: 0 0 20px rgba(169, 7, 250, 0.4); }
 
         .table { color: white !important; vertical-align: middle; }
-        .text-prediction { color: #00d2ff; font-weight: 600; }
-        .ai-insight { font-size: 0.85rem; border-left: 2px solid #a855f7; padding-left: 10px !important; }
-
-        .badge-priority {
-            background: rgba(169, 7, 250, 0.3) !important; 
-            border: 1px solid #A907FA;
+        .text-prediction { color: #00d2ff; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+        
+        .ai-box {
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 3px solid #00d2ff;
+            padding: 12px;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.85rem;
+            line-height: 1.4;
         }
+
+        /* Logic for Hidden Rows */
+        .extra-row { display: none; }
 
         @@media print {
             .no-print { display: none !important; }
@@ -57,142 +64,181 @@
 </head>
 <body>
 
-    <div class="container">
+    <div class="container-fluid py-2">
         <div class="d-flex justify-content-between align-items-center mb-4 no-print">
-            <h1>💜 ADMIN STRATEGIC PANEL</h1>
             <div>
-                <button onclick="window.print()" class="btn btn-light shadow-sm me-2">📄 Export Report</button>
-                <a href="@Url.Action("Logout", "Home")" class="btn btn-outline-danger">Logout</a>
+                <h1 class="fw-bold mb-0">💜 STRATEGIC RESOURCE OVERVIEW</h1>
+                <p class="text-info small mb-0">Predictive Institutional Resource Planning Database System</p>
+            </div>
+            <div>
+                <button onclick="window.print()" class="btn btn-light rounded-pill shadow-sm me-2">📄 Export Analysis</button>
+                <a href="@Url.Action("Logout", "Home")" class="btn btn-outline-danger rounded-pill px-4">Logout</a>
             </div>
         </div>
 
         <div class="row g-4">
-            <div class="col-md-5 no-print">
+            <div class="col-md-4 no-print">
                 <div class="glass-card text-center">
-                    <h4 class="text-info">🔮 AI Predictive Distribution</h4>
-                    <div style="height: 300px; position: relative;">
+                    <h5 class="text-info fw-bold mb-4">🔮 AI Predictive Distribution</h5>
+                    <div style="height: 320px; position: relative;" class="mb-4">
                         <canvas id="predictionChart"></canvas>
                     </div>
                     
-                    <div class="mt-4">
-                        <p class="mb-1 small opacity-50">Dominant Forecast:</p>
+                    <div class="d-flex flex-wrap justify-content-center gap-2 mb-4">
+                        <small><span class="badge" style="background: #ff5e62;">&nbsp;</span> Economic</small>
+                        <small><span class="badge" style="background: #00d2ff;">&nbsp;</span> Industrial</small>
+                        <small><span class="badge" style="background: #00fa9a;">&nbsp;</span> Business</small>
+                        <small><span class="badge" style="background: #ff9900;">&nbsp;</span> General</small>
+                    </div>
+
+                    <div class="p-3 rounded mb-4" style="background: rgba(0,0,0,0.2);">
+                        <p class="mb-1 small opacity-50">Primary System Forecast:</p>
                         <h5 class="text-prediction">@ViewBag.MostNeeded</h5>
                     </div>
 
-                    <form asp-action="GenerateForecast" method="post" class="mt-3">
-                        <button type="submit" class="btn btn-predict w-100 py-3">🔄 RE-SYNC ANALYTICS</button>
+                    <form asp-action="AdminDashboard" method="get">
+                        <button type="submit" class="btn btn-predict w-100 py-3 rounded-pill">🔄 RE-SYNC ANALYTICS</button>
                     </form>
-                </div>
-
-                <div class="glass-card">
-                    <h3>👥 Faculty & Staff</h3>
-                    <table class="table table-sm mt-3">
-                        <thead>
-                            <tr><th>Name</th><th>Position</th><th>Action</th></tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var user in Model) {
-                                <tr>
-                                    <td>@user.FullName</td>
-                                    <td><small>@user.Position</small></td>
-                                    <td>
-                                        <a href="@Url.Action("UserDashboard", "Home", new { id = user.Id })" class="btn btn-sm btn-outline-info">View</a>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
                 </div>
             </div>
 
-            <div class="col-md-7">
+            <div class="col-md-8">
                 <div class="glass-card">
-                    <h3>📥 Institutional Need Analysis</h3>
-                    <div class="table-responsive">
-                        <table class="table mt-3">
-                            <thead>
-                                <tr class="border-bottom border-secondary">
-                                    <th>Staff Submitter</th>
-                                    <th>Problem Identified</th>
-                                    <th>AI Prediction & Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                     
-                            </tbody>
-                        </table>
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h5 class="fw-bold text-white mb-0"><i class="fa-solid fa-list-check me-2"></i>Problem & Strategy Log</h5>
+                        <span class="badge bg-primary rounded-pill">Live Reports</span>
                     </div>
-                    <p class="small opacity-50 mt-3 no-print">Note: Admins are guided by system predictions for long-term budget and resource allocation.</p>
-                </div>
+                   <div class="table-responsive">
+    <table class="table table-borderless" id="logTable">
+        <thead>
+            <tr class="text-muted small text-uppercase border-bottom border-secondary">
+                <th style="width: 15%;">Submitter</th>
+                <th style="width: 40%;">Problem Description</th>
+                <th style="width: 30%;">AI Strategy</th>
+                <th class="no-print text-center" style="width: 15%;">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+    @if (ViewBag.PredictiveReports != null) {
+        foreach (var report in ViewBag.PredictiveReports) {
+            <tr class="border-bottom border-white-50">
+                <td class="py-3">
+                    <div class="fw-bold text-info">@report.Username</div>
+                    <div class="small opacity-50">@report.Period</div>
+                </td>
 
-                <div class="glass-card">
-                    <h3>📜 Historical Utilization</h3>
-                    <table class="table table-sm">
-                        <thead>
-                            <tr><th>Date</th><th>Description</th><th>Qty</th></tr>
-                        </thead>
-                       <tbody>
-    @if (ViewBag.PredictiveReports != null)
-    {
-        @foreach (var report in ViewBag.PredictiveReports)
-        {
-            <tr>
-                <td>@report.StaffName</td>
-                <td>@report.ProblemDetails</td>
-                <td>@report.AISuggestion</td>
+                <td class="small py-3">
+                    <div class="p-2 rounded text-white" style="background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); white-space: normal;">
+                        @report.ProblemDetails
+                    </div>
+                </td>
+
+                <td>
+                    <span class="badge mb-2" style="background: rgba(0, 210, 255, 0.2); color: #00d2ff;">@report.Prediction</span>
+                    <div class="ai-box">
+                        <i class="fa-solid fa-robot text-info me-1"></i> @report.AISuggestion
+                    </div>
+                </td>
+
+                <td class="no-print text-center">
+                    <form asp-action="ArchiveProblem" method="post">
+                        <input type="hidden" name="id" value="@report.Id" />
+                        <button type="submit" class="btn btn-sm btn-outline-success rounded-pill px-3">Archive 📜</button>
+                    </form>
+                </td>
             </tr>
         }
     }
-    else
-    {
-        <tr>
-            <td colspan="3" class="text-center opacity-50">No predictive reports found in the database.</td>
-        </tr>
-    }
-</tbody>
-                    </table>
+</tbody>```
+    </table>
+</div>
+
+                    <div class="text-center mt-3 no-print">
+                        <button id="btnViewAll" class="btn btn-outline-info rounded-pill px-5 fw-bold" onclick="toggleRows()">
+                            View All Records ⬇️
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="glass-card">
+                    <h5 class="fw-bold text-white mb-4"><i class="fa-solid fa-clock-rotate-left me-2"></i>Historical Resource Utilization</h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="text-info small text-uppercase">
+                                <tr>
+                                    <th>Date Archived</th>
+                                    <th>Resource Log Description</th>
+                                    <th style="width: 30%;">Utilization Efficiency</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (ViewBag.History != null) {
+                                    foreach (var item in ViewBag.History) {
+                                        <tr>
+                                            <td>@item.Date</td>
+                                            <td>@item.Description</td>
+                                            <td>
+                                                <div class="progress" style="height: 8px; background: rgba(255,255,255,0.1); border-radius: 10px;">
+                                                    <div class="progress-bar bg-info" style="width: @(item.Quantity)%"></div>
+                                                </div>
+                                                <small class="opacity-75">@(item.Quantity)% Metric Score</small>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        const ctx = document.getElementById('predictionChart').getContext('2d');
-        
-        const data = {
-            labels: ['Economic', 'Industrial', 'Business', 'General'],
-            datasets: [{
-                data: [
-                    @ViewBag.EconomyCount, 
-                    @ViewBag.IndustryCount, 
-                    @ViewBag.BusinessCount, 
-                    @ViewBag.GeneralCount
-                ],
-                backgroundColor: [
-                    '#f43f5e', // Rose
-                    '#3b82f6', // Blue
-                    '#10b981', // Emerald
-                    '#f59e0b'  // Amber
-                ],
-                hoverOffset: 20,
-                borderWidth: 0,
-                borderRadius: 10
-            }]
-        };
-
-        new Chart(ctx, {
-            type: 'doughnut',
-            data: data,
-            options: {
-                cutout: '75%', 
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: { color: 'white', font: { size: 12 }, padding: 20 }
-                    }
-                },
-                maintainAspectRatio: false
+        // TOGGLE VIEW ALL ROWS
+        function toggleRows() {
+            const extraRows = document.querySelectorAll('.extra-row');
+            const btn = document.getElementById('btnViewAll');
+            
+            if (extraRows.length === 0) {
+                alert("No more records to show.");
+                return;
             }
+
+            const isHidden = extraRows[0].style.display === 'none' || extraRows[0].style.display === '';
+
+            extraRows.forEach(row => {
+                row.style.display = isHidden ? 'table-row' : 'none';
+            });
+
+            btn.innerHTML = isHidden ? 'Show Less ⬆️' : 'View All Records ⬇️';
+        }
+
+        // CHART JS
+        document.addEventListener("DOMContentLoaded", function() {
+            const ctx = document.getElementById('predictionChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Economic', 'Industrial', 'Business', 'General'],
+                    datasets: [{
+                        data: [15, 45, 10, 30], 
+                        backgroundColor: ['#ff5e62', '#00d2ff', '#00fa9a', '#ff9900'],
+                        borderWidth: 0,
+                        hoverOffset: 20
+                    }]
+                },
+                options: {
+                    cutout: '80%',
+                    plugins: { legend: { display: false } },
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
         });
     </script>
 </body>

@@ -3,8 +3,10 @@ using MySql.Data.MySqlClient;
 using System;
 using System.Collections.Generic;
 using System.Dynamic;
-using System.Reflection.PortableExecutable;
+using System.Linq;
 using Web_System.Models;
+using Dapper;
+
 
 namespace Web_System.Controllers
 {
@@ -14,7 +16,6 @@ namespace Web_System.Controllers
 
         public IActionResult Login() => View();
 
-        [HttpPost]
         [HttpPost]
         public IActionResult ProcessLogin(string username, string password)
         {
@@ -34,7 +35,6 @@ namespace Web_System.Controllers
                         {
                             if (reader.Read())
                             {
-                                // 1. Map the database values to your User object
                                 loggedInUser = new User
                                 {
                                     Id = Convert.ToInt32(reader["Id"]),
@@ -42,14 +42,6 @@ namespace Web_System.Controllers
                                     FullName = reader["FullName"].ToString(),
                                     Position = reader["POSITION"].ToString()
                                 };
-
-                                // 2. Debugging: This will show in your Visual Studio Output window
-                                Console.WriteLine($"LOGIN SUCCESS: User={loggedInUser.FullName}, Role='{loggedInUser.Role}'");
-                            }
-                            else
-                            {
-                                // 3. Debugging: Query returned 0 rows
-                                Console.WriteLine("LOGIN FAIL: No user found with those credentials.");
                             }
                         }
                     }
@@ -61,19 +53,15 @@ namespace Web_System.Controllers
                 return View("Login");
             }
 
-            // 4. Decision Logic: Only runs if the database connection finished successfully
             if (loggedInUser != null)
             {
-                // Check if the trimmed role is exactly "Admin"
                 if (string.Equals(loggedInUser.Role, "Admin", StringComparison.OrdinalIgnoreCase))
                 {
                     return RedirectToAction("AdminDashboard");
                 }
-
                 return RedirectToAction("UserDashboard", new { id = loggedInUser.Id });
             }
 
-            // 5. Fallback: If no user was found, return to login with error
             ViewBag.ErrorMessage = "Invalid Credentials!";
             return View("Login");
         }
@@ -90,7 +78,7 @@ namespace Web_System.Controllers
                 {
                     conn.Open();
 
-                    // 1. Fetch Users
+                    // 1. Fetch Users List
                     string userSql = "SELECT Id, FullName, POSITION, Role FROM Users";
                     using (MySqlCommand cmd = new MySqlCommand(userSql, conn))
                     using (var reader = cmd.ExecuteReader())
@@ -107,53 +95,118 @@ namespace Web_System.Controllers
                         }
                     }
 
-                    // 2. Fetch Predictive Reports
-                    string reqSql = "SELECT p.*, u.FullName FROM PlanningInput p JOIN Users u ON p.faculty_id = u.Id ORDER BY p.planning_id DESC";
+                    // 2. Fetch Planning Inputs (Problems & AI Solutions)
+                    string reqSql = @"SELECT p.*, u.FullName 
+                                     FROM planninginput p 
+                                     LEFT JOIN Users u ON p.faculty_id = u.Id 
+                                     ORDER BY p.planning_id DESC";
+
+                    // 1. Create the connection string (Make sure your DB name and password are correct)
+                    string connString = "Server=localhost;Database=pirds;Uid=root;Pwd=1234;";
+
+                    // 2. Open the connection - this "unlocks" the variable 'connection'
+                    using (var connection = new MySqlConnection(connString))
+                    {
+                        // 3. Fetch Predictive Reports
+                        string queryReports = @"SELECT p.planning_id AS Id,
+                               p.resource_request AS ProblemDetails,
+                               p.status AS Prediction, 
+                               p.ai_suggestion AS AISuggestion,
+                               u.FullName AS Username, 
+                               p.planning_period AS Period
+                        FROM planninginput p 
+                        INNER JOIN Users u ON p.faculty_id = u.Id 
+                        ORDER BY p.planning_id DESC";
+
+                        // Now 'connection' will no longer be red!
+                        var reports = connection.Query<dynamic>(queryReports).ToList();
+                        ViewBag.PredictiveReports = reports;
+
+                        // 4. Fetch Historical Trends
+                        string queryHistory = "SELECT usage_date AS Date, description AS Description, quantity_used AS Quantity FROM historicalusage";
+                        var history = connection.Query<dynamic>(queryHistory).ToList();
+                        ViewBag.History = history;
+
+                        // 5. Fetch Data for Users (The Model) - notice we use 'connection' here too!
+                        var userList = connection.Query<Web_System.Models.User>("SELECT * FROM users WHERE Role != 'Admin'").ToList();
+
+                        return View(userList);
+
+                        // Fetch the Historical Trends data
+                        string queryhistory = "SELECT usage_date AS Date, description AS ResourceLog, quantity_used AS Utilization FROM historicalusage ORDER BY history_date DESC";
+
+                        // Convert the database results into a list
+                        var historyData = connection.Query<dynamic>(queryHistory).ToList();
+
+                        // Send it to the View
+                        ViewBag.History = historyData;
+
+                        return View(userList);
+                        // 1. Get the counts for the Chart
+                        ViewBag.GeneralCount = connection.ExecuteScalar<int>("SELECT COUNT(*) FROM planninginput WHERE status LIKE '%General%'");
+                        ViewBag.EconomyCount = connection.ExecuteScalar<int>("SELECT COUNT(*) FROM planninginput WHERE status LIKE '%Economic%'");
+                        ViewBag.IndustryCount = connection.ExecuteScalar<int>("SELECT COUNT(*) FROM planninginput WHERE status LIKE '%Industrial%'");
+                        ViewBag.BusinessCount = connection.ExecuteScalar<int>("SELECT COUNT(*) FROM planninginput WHERE status LIKE '%Business%'");
+
+                        // 2. Determine the "Most Needed" for the text box
+                        var counts = new Dictionary<string, int> {
+                                    { "General", (int)ViewBag.GeneralCount },
+                                    { "Economic", (int)ViewBag.EconomyCount },
+                                    { "Industrial", (int)ViewBag.IndustryCount },
+                                    { "Business", (int)ViewBag.BusinessCount }
+                                     };
+                        ViewBag.MostNeeded = counts.OrderByDescending(x => x.Value).First().Key;
+                    }
+
+
                     using (MySqlCommand reqCmd = new MySqlCommand(reqSql, conn))
                     using (var reader = reqCmd.ExecuteReader())
                     {
                         while (reader.Read())
                         {
                             dynamic report = new ExpandoObject();
-                            // Use the null-coalescing operator for safety
-                            report.StaffName = reader["FullName"]?.ToString() ?? "Unknown Staff";
+                            report.planning_id = reader["planning_id"];
+                            report.StaffName = reader["FullName"]?.ToString() ?? "System/Guest";
                             report.ProblemDetails = reader["resource_request"]?.ToString() ?? "No details provided";
-                            report.SystemPrediction = reader["status"]?.ToString() ?? "General Institutional Need";
-                            report.AISuggestion = reader["ai_suggestion"]?.ToString() ?? "Standard Review Required";
+                            report.SystemPrediction = reader["status"]?.ToString() ?? "General Need";
+                            report.AISuggestion = reader["ai_suggestion"]?.ToString() ?? "Analysis Pending";
                             report.Period = reader["planning_period"]?.ToString() ?? "N/A";
                             predictiveReports.Add(report);
                         }
                     }
 
-                    // 3. Fetch Usage History
-                    string historySql = "SELECT `Date`, `Item Description`, `Quantity` FROM historicalusage";
-                    using (MySqlCommand historyCmd = new MySqlCommand(historySql, conn))
-                    using (var reader = historyCmd.ExecuteReader())
+                    // 3. Historical Data
+                    string historySql = "SELECT usage_date, description, quantity_used FROM historicalusage";
+
+                    using (MySqlCommand hCmd = new MySqlCommand(historySql, conn))
+                    using (var hReader = hCmd.ExecuteReader())
                     {
-                        while (reader.Read())
+                        while (hReader.Read())
                         {
                             dynamic entry = new ExpandoObject();
-                            entry.Date = reader.IsDBNull(0) ? "N/A" : reader.GetDateTime(0).ToString("yyyy-MM-dd");
-                            entry.Description = reader["Item Description"].ToString();
-                            entry.Quantity = reader["Quantity"].ToString();
+
+                            // 2. Use the correct column names inside hReader[...]
+                            // We assign them to the property names your View expects (Date, Description, Quantity)
+                            entry.Date = hReader["usage_date"].ToString();
+                            entry.Description = hReader["description"].ToString();
+                            entry.Quantity = hReader["quantity_used"].ToString();
+
                             usageHistory.Add(entry);
                         }
                     }
                 }
 
-                // --- BRAIN OF THE DASHBOARD: Calculate Analytics before returning ---
                 ViewBag.PredictiveReports = predictiveReports;
                 ViewBag.History = usageHistory;
 
-                // Dynamic Chart Counts
-                ViewBag.EconomyCount = predictiveReports.Count(r => r.SystemPrediction.Contains("Economic"));
-                ViewBag.IndustryCount = predictiveReports.Count(r => r.SystemPrediction.Contains("Industrial"));
-                ViewBag.BusinessCount = predictiveReports.Count(r => r.SystemPrediction.Contains("Business"));
-                ViewBag.GeneralCount = predictiveReports.Count(r => r.SystemPrediction.Contains("General"));
+                // CHART LOGIC: Counts occurrences of specific Predictive Solutions
+                ViewBag.EconomyCount = predictiveReports.Count(r => ((string)r.SystemPrediction).Contains("Economic"));
+                ViewBag.IndustryCount = predictiveReports.Count(r => ((string)r.SystemPrediction).Contains("Industrial"));
+                ViewBag.BusinessCount = predictiveReports.Count(r => ((string)r.SystemPrediction).Contains("Business"));
+                ViewBag.GeneralCount = predictiveReports.Count(r => ((string)r.SystemPrediction).Contains("General"));
 
-                // High Priority Forecast Logic
                 ViewBag.MostNeeded = predictiveReports.Any()
-                    ? predictiveReports.GroupBy(r => r.SystemPrediction)
+                    ? predictiveReports.GroupBy(r => (string)r.SystemPrediction)
                                        .OrderByDescending(g => g.Count())
                                        .First().Key
                     : "System Idle";
@@ -165,7 +218,6 @@ namespace Web_System.Controllers
 
             return View("AdminDashboard", users);
         }
-
 
         public IActionResult UserDashboard(int? id)
         {
@@ -187,7 +239,7 @@ namespace Web_System.Controllers
                         {
                             userProfile = new User
                             {
-                                Id = (int)id,
+                                Id = Convert.ToInt32(reader["Id"]),
                                 FullName = reader["FullName"].ToString(),
                                 Position = reader["POSITION"].ToString(),
                                 Role = reader["Role"].ToString()
@@ -198,7 +250,7 @@ namespace Web_System.Controllers
 
                 if (userProfile == null) return RedirectToAction("Login");
 
-                string sql = "SELECT * FROM PlanningInput WHERE faculty_id = @id ORDER BY planning_id DESC";
+                string sql = "SELECT * FROM planninginput WHERE faculty_id = @id ORDER BY planning_id DESC";
                 using (MySqlCommand cmd = new MySqlCommand(sql, conn))
                 {
                     cmd.Parameters.AddWithValue("@id", id);
@@ -219,100 +271,89 @@ namespace Web_System.Controllers
             ViewBag.MyRequests = myRequests;
             return View("User", userProfile);
         }
+
         [HttpPost]
-        public IActionResult SubmitPlanningData(int facultyId, string resourceRequest)
+        public IActionResult SubmitPlanningData(int facultyId, string resourceRequest, string planningPeriod)
         {
-            string input = resourceRequest.ToLower();
+            // Initializing system response
+            string prediction = "General Need";
+            string suggestion = "Standard resource allocation and administrative review recommended.";
 
-            // 1. Scoring Vectors (Relational Weights)
-            double economy = 0, industry = 0, business = 0, tech = 0;
+            string reqLower = resourceRequest.ToLower();
 
-            // --- ECONOMIC & MARKET CONTEXT ---
-            if (input.Contains("inflation") || input.Contains("market") || input.Contains("price")) economy += 3.5;
-            if (input.Contains("supply") || input.Contains("demand") || input.Contains("cost")) economy += 2;
-
-            // --- INDUSTRIAL & MANUFACTURING CONTEXT ---
-            if (input.Contains("production") || input.Contains("factory") || input.Contains("raw material")) industry += 3.5;
-            if (input.Contains("automation") || input.Contains("supply chain") || input.Contains("logistics")) industry += 2;
-
-            // --- BUSINESS & REVENUE CONTEXT ---
-            if (input.Contains("profit") || input.Contains("revenue") || input.Contains("competitor")) business += 3.5;
-            if (input.Contains("client") || input.Contains("marketing") || input.Contains("growth")) business += 2;
-
-            // --- TECHNICAL CONTEXT ---
-            if (input.Contains("computer") || input.Contains("software") || input.Contains("server")) tech += 3.5;
-
-            // 2. The Decision Matrix
-            string prediction, suggestion, priority = "Normal";
-
-            if (economy > industry && economy > business)
+            // PREDICTIVE AI ENGINE: Maps Institutional Problems to Solutions
+            if (reqLower.Contains("market") || reqLower.Contains("economy") || reqLower.Contains("finance") || reqLower.Contains("price"))
             {
-                prediction = "Macro-Economic Volatility Forecast";
-                suggestion = "Hedge against price increases and audit procurement contracts immediately.";
-                priority = "High (Market Risk)";
+                prediction = "Economic Stability Solution";
+                suggestion = "Strategic Action: Allocate fiscal buffers and adjust budgets for market volatility.";
             }
-            else if (industry > business)
+            else if (reqLower.Contains("industrial") || reqLower.Contains("machinery") || reqLower.Contains("broken") || reqLower.Contains("repair"))
             {
-                prediction = "Industrial Operational Bottleneck";
-                suggestion = "Optimize supply chain logistics and investigate production automation.";
-                priority = "Critical (Operational)";
+                prediction = "Industrial Operational Recovery";
+                suggestion = "Strategic Action: Immediate procurement of replacement parts and maintenance scheduling.";
             }
-            else if (business > 1.5)
+            else if (reqLower.Contains("business") || reqLower.Contains("marketing") || reqLower.Contains("revenue") || reqLower.Contains("growth"))
             {
-                prediction = "Business Revenue Strategy Shift";
-                suggestion = "Perform a SWOT analysis and focus on high-margin client retention.";
-                priority = "Standard (Strategic)";
-            }
-            else
-            {
-                prediction = "General Institutional Need";
-                suggestion = "Standard review. No immediate financial or industrial threat detected.";
+                prediction = "Business Development Strategy";
+                suggestion = "Strategic Action: Expand outreach programs and invest in brand positioning.";
             }
 
-            // 3. Save everything to the database (Using the new columns)
-            using (MySqlConnection conn = new MySqlConnection(connString))
+            try
             {
-                conn.Open();
-                string sql = "INSERT INTO planninginput (faculty_id, resource_request, planning_period, status, ai_suggestion, priority_level) " +
-                             "VALUES (@fid, @req, '2026-FY', @pred, @sugg, @pri)";
-                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                using (MySqlConnection conn = new MySqlConnection(connString))
                 {
-                    cmd.Parameters.AddWithValue("@fid", facultyId);
-                    cmd.Parameters.AddWithValue("@req", resourceRequest);
-                    cmd.Parameters.AddWithValue("@pred", prediction);
-                    cmd.Parameters.AddWithValue("@sugg", suggestion);
-                    cmd.Parameters.AddWithValue("@pri", priority);
-                    cmd.ExecuteNonQuery();
+                    conn.Open();
+                    // Saving the Problem (resource_request), Prediction (status), and Advice (ai_suggestion)
+                    string sql = "INSERT INTO planninginput (faculty_id, resource_request, planning_period, status, ai_suggestion) " +
+                                 "VALUES (@fid, @req, @period, @status, @sugg)";
+                    using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@fid", facultyId);
+                        cmd.Parameters.AddWithValue("@req", resourceRequest);
+                        cmd.Parameters.AddWithValue("@period", planningPeriod);
+                        cmd.Parameters.AddWithValue("@status", prediction);
+                        cmd.Parameters.AddWithValue("@sugg", suggestion);
+                        cmd.ExecuteNonQuery();
+                    }
                 }
+                TempData["SuccessMessage"] = "Institutional data analyzed and recorded successfully!";
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = "System Error during analysis: " + ex.Message;
             }
 
             return RedirectToAction("UserDashboard", new { id = facultyId });
         }
 
-
-        [HttpPost]
-        public IActionResult GenerateForecast()
-        {
-            TempData["Message"] = "AI Analytics Engine Re-Synced Successfully.";
-            return RedirectToAction("AdminDashboard");
-        }
-
-
         public IActionResult ContactAdmin()
         {
-            // You can pull this from a database later, but for now, we'll hardcode it
             ViewBag.AdminEmail = "gandalusaoryza9@gmail.com";
             ViewBag.AdminPhone = "+63 981 711 4634";
             ViewBag.OfficeHours = "Monday - Friday, 8:00 AM - 5:00 PM";
-
             return View();
         }
-        public IActionResult ViewRecords(int id)
+        [HttpPost]
+        public IActionResult ArchiveProblem(int id)
         {
-            return RedirectToAction("UserDashboard", new { id = id });
+            using (var connection = new MySqlConnection(connString))
+            {
+                // 1. Copy the data to History
+                string archiveSql = @"INSERT INTO historicalusage (usage_date, description, quantity_used)
+                              SELECT CURRENT_DATE, resource_request, 100 
+                              FROM planninginput WHERE planning_id = @id";
+
+                connection.Execute(archiveSql, new { id = id });
+
+                // 2. Delete it from Active Problems (so the dashboard stays clean)
+                connection.Execute("DELETE FROM planninginput WHERE planning_id = @id", new { id = id });
+
+                TempData["SuccessMessage"] = "Problem archived to Historical Trends successfully!";
+                return RedirectToAction("AdminDashboard");
+            }
         }
 
-
+        public IActionResult GenerateForecast() => View();
 
         public IActionResult Logout() => RedirectToAction("Login");
     }
